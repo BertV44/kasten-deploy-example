@@ -1,0 +1,4 @@
+---
+# Implemented in phase 5.
+- name: Reports | Placeholder until implemented
+  ansible.builtin.meta: noop

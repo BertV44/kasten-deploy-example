@@ -1,0 +1,4 @@
+ansible-core>=2.21
+kubernetes>=37.0
+PyYAML
+jmespath

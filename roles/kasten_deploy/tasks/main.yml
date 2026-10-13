@@ -1,0 +1,66 @@
+---
+# Every cluster interaction goes through kubernetes.core (no kubectl or oc in the role).
+# Connection settings come from kasten_kubeconfig / kasten_kube_context, otherwise from K8S_AUTH_*.
+- name: Kasten deployment
+  module_defaults:
+    group/kubernetes.core.k8s:
+      kubeconfig: "{{ kasten_kubeconfig | default(omit, true) }}"
+      context: "{{ kasten_kube_context | default(omit, true) }}"
+  block:
+    - name: Preflight checks
+      ansible.builtin.import_tasks: preflight.yml
+      tags: [preflight, always]
+
+    - name: Install Kasten with Helm
+      ansible.builtin.import_tasks: install_helm.yml
+      when: kasten_install_method == 'helm'
+      tags: [install]
+
+    - name: Install Kasten with the OLM operator
+      ansible.builtin.import_tasks: install_operator.yml
+      when: kasten_install_method == 'operator'
+      tags: [install]
+
+    - name: Manage the license
+      ansible.builtin.import_tasks: license.yml
+      when: kasten_license_enabled | bool
+      tags: [license]
+
+    - name: Configure multi-cluster on the primary
+      ansible.builtin.import_tasks: multicluster_primary.yml
+      when: kasten_mc_role == 'primary'
+      tags: [multicluster]
+
+    - name: Configure multi-cluster on the secondary
+      ansible.builtin.import_tasks: multicluster_secondary.yml
+      when: kasten_mc_role == 'secondary'
+      tags: [multicluster]
+
+    - name: Manage RBAC bindings
+      ansible.builtin.import_tasks: rbac.yml
+      when: kasten_rbac_bindings | length > 0
+      tags: [rbac]
+
+    - name: Manage location profiles
+      ansible.builtin.import_tasks: profiles.yml
+      when: kasten_profiles | length > 0
+      tags: [profiles]
+
+    - name: Manage Kasten Disaster Recovery
+      ansible.builtin.import_tasks: dr.yml
+      when: kasten_dr_enabled | bool
+      tags: [dr]
+
+    - name: Manage Reports
+      ansible.builtin.import_tasks: reports.yml
+      when: kasten_reports_enabled | bool
+      tags: [reports]
+
+    - name: Manage policies
+      ansible.builtin.import_tasks: policies.yml
+      when: kasten_policies | length > 0
+      tags: [policies]
+
+    - name: Final validation report
+      ansible.builtin.import_tasks: validate.yml
+      tags: [validate]

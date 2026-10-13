@@ -1,0 +1,150 @@
+---
+# Preflight test matrix. The expected outcome of each case is written here before running it.
+# Needs a reachable cluster (KUBECONFIG) for the cluster-dependent checks.
+- name: Preflight test matrix
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    base:
+      kasten_version: "9.0.7"
+      kasten_airgap_repository: registry.example.local:5000/kasten
+      kasten_helm_chart_path: "{{ playbook_dir }}/fixtures/k10-0.0.0.tgz"
+      kasten_kubeconfig: "{{ lookup('ansible.builtin.env', 'KUBECONFIG') }}"
+    cases:
+      - name: valid helm configuration
+        vars: {}
+        expect_ok: true
+      - name: missing version
+        vars: {kasten_version: ""}
+        expect: ["kasten_version is required"]
+      - name: malformed version
+        vars: {kasten_version: "latest"}
+        expect: ["kasten_version is required"]
+      - name: missing registry
+        vars: {kasten_airgap_repository: ""}
+        expect: ["kasten_airgap_repository is required"]
+      - name: chart path unset
+        vars: {kasten_helm_chart_path: ""}
+        expect: ["kasten_helm_chart_path is required"]
+      - name: chart file missing
+        vars: {kasten_helm_chart_path: /nonexistent/k10.tgz}
+        expect: ["kasten_helm_chart_path does not point to an existing file"]
+      - name: invalid install method rejected by argument_specs
+        vars: {kasten_install_method: ansible}
+        expect: ["value of kasten_install_method must be one of"]
+      - name: operator on explicit kubernetes platform
+        vars: {kasten_install_method: operator, kasten_platform: kubernetes, kasten_operator_catalog_source: certified-operators, kasten_operator_starting_csv: x}
+        expect: ["operator install method is supported on OpenShift only"]
+      - name: operator with PAYGO-like package
+        vars: {kasten_install_method: operator, kasten_operator_package: k10-kasten-operator-paygo, kasten_operator_catalog_source: certified-operators, kasten_operator_starting_csv: x}
+        expect: ["kasten_operator_package must be"]
+      - name: operator without catalog source
+        vars: {kasten_install_method: operator, kasten_operator_starting_csv: x}
+        expect: ["kasten_operator_catalog_source is required"]
+      - name: operator Manual approval without startingCSV
+        vars: {kasten_install_method: operator, kasten_operator_catalog_source: certified-operators}
+        expect: ["kasten_operator_starting_csv is required"]
+      - name: valid operator configuration on the lab
+        vars: {kasten_install_method: operator, kasten_operator_catalog_source: certified-operators, kasten_operator_install_plan_approval: Automatic}
+        expect_ok: true
+      - name: license enabled without license
+        vars: {kasten_license_enabled: true}
+        expect: ["requires kasten_license_text or kasten_license_file"]
+      - name: license text and file together
+        vars: {kasten_license_enabled: true, kasten_license_text: abc, kasten_license_file: "{{ playbook_dir }}/fixtures/license.lic"}
+        expect: ["mutually exclusive"]
+      - name: license file missing
+        vars: {kasten_license_enabled: true, kasten_license_file: /nonexistent/license.lic}
+        expect: ["kasten_license_file does not point to an existing file"]
+      - name: valid license file
+        vars: {kasten_license_enabled: true, kasten_license_file: "{{ playbook_dir }}/fixtures/license.lic"}
+        expect_ok: true
+      - name: primary without ingress URL
+        vars: {kasten_mc_role: primary, kasten_mc_cluster_name: hub}
+        expect: ["kasten_mc_primary_ingress_url is required"]
+      - name: primary without cluster name
+        vars: {kasten_mc_role: primary, kasten_mc_primary_ingress_url: "https://h/k10"}
+        expect: ["kasten_mc_cluster_name is required"]
+      - name: non-conforming cluster name
+        vars: {kasten_mc_role: secondary, kasten_mc_primary_host: hub, kasten_mc_cluster_name: Bad_Name-}
+        expect: ["kasten_mc_cluster_name must use lowercase"]
+      - name: secondary without primary host
+        vars: {kasten_mc_role: secondary}
+        expect: ["kasten_mc_primary_host is required"]
+      - name: rbac namespace scope without namespace
+        vars: {kasten_rbac_bindings: [{name: b, scope: namespace, role: k10-basic, subjects: [{kind: User, name: u}]}]}
+        expect: ["need a namespace: b"]
+      - name: rbac service account without namespace
+        vars: {kasten_rbac_bindings: [{name: b, role: k10-admin, subjects: [{kind: ServiceAccount, name: sa}]}]}
+        expect: ["ServiceAccount subjects need a namespace: sa"]
+      - name: profile s3compatible without endpoint
+        vars: {kasten_profiles: [{name: p, type: s3compatible, bucket: b, credentials: {access_key_id: a, secret_access_key: s}}]}
+        expect: ["type s3compatible need an endpoint: p"]
+      - name: profile missing bucket rejected by argument_specs
+        vars: {kasten_profiles: [{name: p, type: s3, credentials: {access_key_id: a, secret_access_key: s}}]}
+        expect: ["missing required arguments: bucket"]
+      - name: duplicate profile names
+        vars:
+          kasten_profiles:
+            - {name: p, type: s3, bucket: b, credentials: {access_key_id: a, secret_access_key: s}}
+            - {name: p, type: s3, bucket: c, credentials: {access_key_id: a, secret_access_key: s}}
+        expect: ["names must be unique"]
+      - name: DR with unknown profile
+        vars: {kasten_dr_enabled: true, kasten_dr_profile: nope, kasten_dr_passphrase: x}
+        expect: ["kasten_dr_profile must name an entry"]
+      - name: DR without passphrase
+        vars:
+          kasten_dr_enabled: true
+          kasten_dr_profile: p
+          kasten_profiles: [{name: p, type: s3, bucket: b, credentials: {access_key_id: a, secret_access_key: s}}]
+        expect: ["kasten_dr_passphrase is required"]
+      - name: DR with unimplemented passphrase source
+        vars:
+          kasten_dr_enabled: true
+          kasten_dr_profile: p
+          kasten_dr_passphrase_source: vault
+          kasten_profiles: [{name: p, type: s3, bucket: b, credentials: {access_key_id: a, secret_access_key: s}}]
+        expect: ["not implemented yet"]
+      - name: aggregation of several errors
+        vars: {kasten_version: "", kasten_airgap_repository: "", kasten_mc_role: secondary}
+        expect: ["3 error(s)", "kasten_version is required", "kasten_airgap_repository is required", "kasten_mc_primary_host is required"]
+      - name: unreachable API
+        vars: {kasten_kubeconfig: /nonexistent/kubeconfig}
+        expect: ["the Kubernetes API is not reachable"]
+  tasks:
+    - name: Run every case in its own ansible-playbook process
+      ansible.builtin.command:
+        argv:
+          - "{{ lookup('ansible.builtin.env', 'VIRTUAL_ENV') | default('', true) ~ '/bin/' if lookup('ansible.builtin.env', 'VIRTUAL_ENV') else '' }}ansible-playbook"
+          - "{{ playbook_dir }}/run_role.yml"
+          - --tags
+          - preflight
+          - --inventory
+          - localhost,
+          - --extra-vars
+          - "{{ base | combine(case.vars) | to_json }}"
+          - --extra-vars
+          - ansible_python_interpreter={{ ansible_playbook_python }}
+      environment:
+        ANSIBLE_ROLES_PATH: "{{ playbook_dir }}/../roles"
+        ANSIBLE_NOCOLOR: "1"
+        ANSIBLE_FORCE_COLOR: "0"
+      register: results
+      changed_when: false
+      failed_when: false
+      loop: "{{ cases }}"
+      loop_control:
+        label: "{{ case.name }}"
+        loop_var: case
+
+    - name: Check every outcome against its expectation
+      ansible.builtin.assert:
+        that:
+          - (item.case.expect_ok | default(false)) == (item.rc == 0)
+          - item.case.expect | default([]) | select('in', item.stdout) | list | length == item.case.expect | default([]) | length
+        fail_msg: "{{ item.case.name }}: rc={{ item.rc }} {{ item.stdout_lines | select('match', '^- |^.*error.s.') | list }}"
+        quiet: true
+      loop: "{{ results.results }}"
+      loop_control:
+        label: "{{ item.case.name }}"

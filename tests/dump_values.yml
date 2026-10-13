@@ -1,0 +1,16 @@
+---
+# Renders kasten_deploy_values without any cluster access and writes it to dump_file (extra var).
+- name: Render the Kasten values
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Build the values
+      ansible.builtin.include_role:
+        name: kasten_deploy
+        tasks_from: values.yml
+    - name: Write the values
+      ansible.builtin.copy:
+        content: "{{ kasten_deploy_values | to_nice_yaml }}"
+        dest: "{{ dump_file }}"
+        mode: "0600"

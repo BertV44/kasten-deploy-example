@@ -1,0 +1,4 @@
+---
+# Implemented in phase 7.
+- name: Multi-cluster secondary | Placeholder until implemented
+  ansible.builtin.meta: noop

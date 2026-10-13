@@ -1,0 +1,97 @@
+{
+  "apiVersion": "config.kio.kasten.io/v1alpha1",
+  "kind": "Policy",
+  "metadata": {
+    "name": "kdrill-demo-new",
+    "namespace": "kasten-io"
+  },
+  "spec": {
+    "actions": [
+      {
+        "action": "backup"
+      },
+      {
+        "action": "export",
+        "exportParameters": {
+          "exportData": {
+            "enabled": true
+          },
+          "frequency": "@daily",
+          "migrationToken": {
+            "name": "kdrill-demo-new-fe38e430a9e23119-migration-token",
+            "namespace": "kasten-io"
+          },
+          "profile": {
+            "name": "storj",
+            "namespace": "kasten-io"
+          },
+          "receiveString": "REDACTED"
+        },
+        "retention": {
+          "daily": 7
+        }
+      },
+      {
+        "action": "export",
+        "exportParameters": {
+          "exportData": {
+            "enabled": true
+          },
+          "frequency": "@daily",
+          "migrationToken": {
+            "name": "kdrill-demo-new-c674a5ade90e6947-migration-token",
+            "namespace": "kasten-io"
+          },
+          "profile": {
+            "name": "storj-copy",
+            "namespace": "kasten-io"
+          },
+          "receiveString": "REDACTED"
+        },
+        "retention": {
+          "daily": 7
+        }
+      }
+    ],
+    "createdBy": "kube:admin",
+    "frequency": "@daily",
+    "lastModifyHash": 1456165373,
+    "retention": {
+      "daily": 1,
+      "yearly": 90
+    },
+    "selector": {
+      "matchExpressions": [
+        {
+          "key": "k10.kasten.io/appNamespace",
+          "operator": "In",
+          "values": [
+            "kdrill-demo"
+          ]
+        }
+      ]
+    },
+    "subFrequency": {
+      "days": [
+        1
+      ],
+      "hours": [
+        21
+      ],
+      "minutes": [
+        0
+      ],
+      "months": [
+        1
+      ],
+      "weekdays": [
+        0
+      ]
+    }
+  },
+  "status": {
+    "hash": 3246873457,
+    "specModifiedTime": "2026-10-04T14:55:19Z",
+    "validation": "Success"
+  }
+}

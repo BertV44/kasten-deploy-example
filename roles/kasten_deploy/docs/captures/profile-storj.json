@@ -1,0 +1,37 @@
+{
+  "apiVersion": "config.kio.kasten.io/v1alpha1",
+  "kind": "Profile",
+  "metadata": {
+    "name": "storj",
+    "namespace": "kasten-io"
+  },
+  "spec": {
+    "locationSpec": {
+      "credential": {
+        "secret": {
+          "apiVersion": "v1",
+          "kind": "secret",
+          "name": "k10secret-pzl5s",
+          "namespace": "kasten-io"
+        },
+        "secretType": "AwsAccessKey"
+      },
+      "objectStore": {
+        "endpoint": "https://gateway.storjshare.io",
+        "name": "oc11",
+        "objectStoreType": "S3",
+        "path": "k10/REDACTED-CLUSTER-ID/migration",
+        "pathType": "Directory",
+        "protectionPeriod": "168h0m0s",
+        "region": "eu1",
+        "skipSSLVerify": true
+      },
+      "type": "ObjectStore"
+    },
+    "type": "Location"
+  },
+  "status": {
+    "hash": 2042003440,
+    "validation": "Success"
+  }
+}

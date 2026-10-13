@@ -1,0 +1,4 @@
+---
+# Implemented in phase 4.
+- name: Profiles | Placeholder until implemented
+  ansible.builtin.meta: noop

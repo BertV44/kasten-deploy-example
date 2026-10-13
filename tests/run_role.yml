@@ -1,0 +1,8 @@
+---
+# Minimal playbook used by the test drivers. Variables come from --extra-vars.
+- name: Run the role
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: kasten_deploy

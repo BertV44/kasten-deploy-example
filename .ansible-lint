@@ -1,0 +1,10 @@
+---
+profile: production
+exclude_paths:
+  - .venv/
+  - .git/
+  - roles/kasten_deploy/docs/
+skip_list:
+  # The public variable contract uses the kasten_ prefix (not kasten_deploy_). Internal variables
+  # (set_fact and register) use kasten_deploy_ anyway.
+  - var-naming[no-role-prefix]

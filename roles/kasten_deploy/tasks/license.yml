@@ -1,0 +1,62 @@
+---
+# Kasten reads license Secrets dynamically (field named license), no restart needed.
+# A plain Secret is used instead of the Helm value to keep the license out of the release values.
+- name: License | Create or update the license Secret
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: "{{ kasten_license_secret_name }}"
+        namespace: "{{ kasten_namespace }}"
+        labels:
+          app.kubernetes.io/managed-by: ansible-kasten-deploy
+      type: Opaque
+      data:
+        license: "{{ (kasten_license_text if kasten_license_text | length > 0 else lookup('ansible.builtin.file', kasten_license_file)) | b64encode }}"
+  register: kasten_deploy_license_secret
+  no_log: true
+
+- name: License | Read the Reports
+  kubernetes.core.k8s_info:
+    api_version: reporting.kio.kasten.io/v1alpha1
+    kind: Report
+    namespace: "{{ kasten_namespace }}"
+  register: kasten_deploy_license_reports
+  changed_when: false
+  failed_when: false
+  when: kasten_reports_enabled | bool
+
+- name: License | Select the latest Report
+  ansible.builtin.set_fact:
+    kasten_deploy_license_report: >-
+      {{ (kasten_deploy_license_reports.resources | default([]) | sort(attribute='spec.reportTimestamp') | last) | default({}, true) }}
+  when: kasten_reports_enabled | bool
+
+- name: License | Warn that the license cannot be validated without a Report
+  ansible.builtin.debug:
+    msg: >-
+      License validation skipped: it needs Reports. Enable kasten_reports_enabled and wait for a report generated after the Secret.
+  when: not (kasten_reports_enabled | bool) or (kasten_deploy_license_report | default({})) == {}
+
+- name: License | Validate the license status from the latest Report
+  when:
+    - kasten_reports_enabled | bool
+    - (kasten_deploy_license_report | default({})) != {}
+  vars:
+    _secret_created: "{{ kasten_deploy_license_secret.result.metadata.creationTimestamp | default('') }}"
+    _report_time: "{{ kasten_deploy_license_report.spec.reportTimestamp | default('') }}"
+    _status: "{{ kasten_deploy_license_report.results.licensing.status | default('unknown') }}"
+  block:
+    - name: License | Report is older than the license Secret
+      ansible.builtin.debug:
+        msg: "The latest Report ({{ _report_time }}, license {{ _status }}) predates the license Secret. Check again after the next report."
+      when: _report_time < _secret_created
+
+    - name: License | Fail when the license is not valid in a recent Report
+      ansible.builtin.assert:
+        that: _status == 'Valid'
+        fail_msg: "The latest Report ({{ _report_time }}) shows license status {{ _status }}."
+        quiet: true
+      when: _report_time >= _secret_created

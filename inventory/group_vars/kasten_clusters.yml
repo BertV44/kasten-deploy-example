@@ -1,0 +1,9 @@
+---
+# Example values with placeholders. Secrets belong in an ansible-vault file, never in clear text.
+kasten_version: "9.0.7"
+kasten_install_method: helm
+kasten_airgap_repository: registry.example.local:5000/kasten
+kasten_helm_chart_path: /opt/kasten/k10-9.0.7.tgz
+# kasten_docker_config_json_b64: "{{ vault_kasten_docker_config_json_b64 }}"
+# kasten_license_enabled: true
+# kasten_license_file: /opt/kasten/license.lic

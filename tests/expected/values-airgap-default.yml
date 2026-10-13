@@ -1,0 +1,6 @@
+---
+global:
+  airgapped:
+    repository: registry.example.local:5000/kasten
+metering:
+  mode: airgap

@@ -1,0 +1,81 @@
+---
+# Platform and installation method
+kasten_platform: auto # auto | openshift | kubernetes
+kasten_install_method: helm # helm | operator (operator requires openshift)
+kasten_version: "" # required
+kasten_namespace: kasten-io
+kasten_release_name: k10 # also the K10 CR name with the operator
+kasten_kubeconfig: "" # otherwise K8S_AUTH_KUBECONFIG
+kasten_kube_context: ""
+
+# Offline
+kasten_airgap_repository: "" # e.g. registry.example.local:5000/kasten (required)
+kasten_image_pull_secret_name: "" # when the registry is private
+kasten_docker_config_json_b64: "" # vault; feeds secrets.dockerConfig
+kasten_helm_chart_path: "" # local .tgz path (required when method is helm)
+kasten_helm_wait_timeout: 15m
+kasten_values: {} # additional values (deep merge)
+
+# Operator (OpenShift)
+kasten_operator_package: k10-kasten-operator-rhmp
+kasten_operator_catalog_source: "" # required: the package exists in several catalogs
+kasten_operator_catalog_namespace: openshift-marketplace
+kasten_operator_channel: stable
+kasten_operator_starting_csv: ""
+kasten_operator_install_plan_approval: Manual # Manual | Automatic
+
+# License
+kasten_license_enabled: false
+kasten_license_text: "" # vault
+kasten_license_file: "" # alternative to kasten_license_text
+kasten_license_secret_name: k10-custom-license
+
+# Multi-cluster
+kasten_mc_role: none # none | primary | secondary
+kasten_mc_cluster_name: "" # lowercase, digits, '-' and '.', alphanumeric start and end
+kasten_mc_primary_ingress_url: "" # primary: <URL>/<release>, e.g. https://host/k10
+kasten_mc_primary_host: "" # secondary: inventory hostname of the primary
+kasten_mc_secondary_cluster_ingress: "" # optional (dashboard proxy from the primary)
+kasten_mc_primary_ingress_override: "" # optional
+kasten_mc_join_timeout_seconds: 300
+kasten_mc_delete_join_token_after_join: true
+
+# RBAC
+kasten_rbac_bindings: []
+# - name: platform-admins
+#   scope: cluster                    # cluster | namespace
+#   namespace: ""                     # required when scope is namespace
+#   role: k10-admin                   # installed as <release>-<suffix>; any existing ClusterRole
+#   subjects:
+#     - {kind: Group, name: "platform-admins"}
+
+# Profiles (location profiles)
+kasten_profiles: []
+# - name: s3-primary
+#   type: s3                          # s3 | s3compatible (same objectStoreType, only the endpoint differs)
+#   endpoint: ""
+#   region: ""
+#   bucket: ""
+#   skip_ssl_verify: false
+#   credentials: {access_key_id: "", secret_access_key: ""}   # vault
+#   immutability: {enabled: false, protection_days: 0}
+
+# Kasten Disaster Recovery
+kasten_dr_enabled: false
+kasten_dr_mode: quick_local # quick_local | quick_exported | quick_none | legacy
+kasten_dr_profile: "" # name of an entry of kasten_profiles
+kasten_dr_passphrase_source: raw # raw | vault | aws | azure (only raw is implemented)
+kasten_dr_passphrase: "" # vault
+kasten_dr_run_once: false
+kasten_dr_policy:
+  frequency: "@hourly"
+  retention: {hourly: 4, daily: 1, weekly: 1, monthly: 1, yearly: 1}
+
+# Reports
+kasten_reports_enabled: false
+kasten_reports_policy: {}
+kasten_reports_wait_first_report: false
+
+# Policies
+kasten_policies: []
+kasten_cluster_scoped_extra_includes: [] # list of {group, resource}

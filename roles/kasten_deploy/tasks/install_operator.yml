@@ -1,0 +1,4 @@
+---
+# Implemented in phase 3.
+- name: Install operator | Placeholder until implemented
+  ansible.builtin.meta: noop

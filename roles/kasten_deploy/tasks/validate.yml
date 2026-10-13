@@ -1,0 +1,4 @@
+---
+# Implemented in phase 8.
+- name: Validate | Placeholder until implemented
+  ansible.builtin.meta: noop

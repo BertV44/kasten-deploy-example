@@ -1,0 +1,109 @@
+{
+  "apiVersion": "config.kio.kasten.io/v1alpha1",
+  "kind": "Policy",
+  "metadata": {
+    "annotations": {
+      "k10.kasten.io/revalidated-at": "2026-08-07T13:58:57Z"
+    },
+    "name": "cluster-scoped-ressources",
+    "namespace": "kasten-io"
+  },
+  "spec": {
+    "actions": [
+      {
+        "action": "backup"
+      },
+      {
+        "action": "export",
+        "exportParameters": {
+          "exportData": {
+            "enabled": true
+          },
+          "frequency": "@daily",
+          "migrationToken": {
+            "name": "cluster-scoped-ressources-beb33b2b68c32f14-migration-token",
+            "namespace": "kasten-io"
+          },
+          "profile": {
+            "name": "storj",
+            "namespace": "kasten-io"
+          },
+          "receiveString": "REDACTED"
+        },
+        "retention": {
+          "daily": 14,
+          "weekly": 4
+        }
+      },
+      {
+        "action": "export",
+        "exportParameters": {
+          "exportData": {
+            "enabled": true
+          },
+          "frequency": "@daily",
+          "migrationToken": {
+            "name": "cluster-scoped-ressources-71e5b38fc66d5189-migration-token",
+            "namespace": "kasten-io"
+          },
+          "profile": {
+            "name": "storj-copy",
+            "namespace": "kasten-io"
+          },
+          "receiveString": "REDACTED"
+        },
+        "retention": {
+          "daily": 7
+        }
+      }
+    ],
+    "createdBy": "kube:admin",
+    "frequency": "@daily",
+    "lastModifyHash": 4033517482,
+    "modifiedBy": "kube:admin",
+    "retention": {
+      "daily": 1
+    },
+    "selector": {
+      "matchExpressions": [
+        {
+          "key": "k10.kasten.io/appNamespace",
+          "operator": "In",
+          "values": [
+            "openshift-etcd",
+            "kasten-io-cluster"
+          ]
+        },
+        {
+          "key": "k10.kasten.io/appNamespace",
+          "operator": "NotIn",
+          "values": [
+            "default*"
+          ]
+        }
+      ]
+    },
+    "subFrequency": {
+      "days": [
+        1
+      ],
+      "hours": [
+        20
+      ],
+      "minutes": [
+        0
+      ],
+      "months": [
+        1
+      ],
+      "weekdays": [
+        0
+      ]
+    }
+  },
+  "status": {
+    "hash": 3294208227,
+    "specModifiedTime": "2026-09-29T07:52:13Z",
+    "validation": "Success"
+  }
+}

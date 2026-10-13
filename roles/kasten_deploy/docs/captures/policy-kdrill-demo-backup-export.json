@@ -1,0 +1,102 @@
+{
+  "apiVersion": "config.kio.kasten.io/v1alpha1",
+  "kind": "Policy",
+  "metadata": {
+    "annotations": {},
+    "name": "kdrill-demo-backup-export",
+    "namespace": "kasten-io"
+  },
+  "spec": {
+    "actions": [
+      {
+        "action": "backup"
+      },
+      {
+        "action": "export",
+        "exportParameters": {
+          "exportData": {
+            "enabled": true
+          },
+          "frequency": "@daily",
+          "migrationToken": {
+            "name": "kdrill-demo-backup-export-d4370ae156a92f9d-migration-token",
+            "namespace": "kasten-io"
+          },
+          "profile": {
+            "name": "storj",
+            "namespace": "kasten-io"
+          },
+          "receiveString": "REDACTED"
+        },
+        "retention": {
+          "daily": 7,
+          "monthly": 1,
+          "weekly": 2
+        }
+      },
+      {
+        "action": "export",
+        "exportParameters": {
+          "exportData": {
+            "enabled": true
+          },
+          "frequency": "@daily",
+          "migrationToken": {
+            "name": "kdrill-demo-backup-export-82777c8d43a31eb3-migration-token",
+            "namespace": "kasten-io"
+          },
+          "profile": {
+            "name": "storj-copy",
+            "namespace": "kasten-io"
+          },
+          "receiveString": "REDACTED"
+        },
+        "retention": {
+          "daily": 7,
+          "weekly": 4
+        }
+      }
+    ],
+    "comment": "kdrill end-to-end test, backup plus export to storj. Safe to delete.",
+    "frequency": "@daily",
+    "lastModifyHash": 694910726,
+    "modifiedBy": "kube:admin",
+    "paused": true,
+    "retention": {
+      "daily": 2
+    },
+    "selector": {
+      "matchExpressions": [
+        {
+          "key": "k10.kasten.io/appNamespace",
+          "operator": "In",
+          "values": [
+            "kdrill-demo"
+          ]
+        }
+      ]
+    },
+    "subFrequency": {
+      "days": [
+        1
+      ],
+      "hours": [
+        20
+      ],
+      "minutes": [
+        0
+      ],
+      "months": [
+        1
+      ],
+      "weekdays": [
+        0
+      ]
+    }
+  },
+  "status": {
+    "hash": 1728414660,
+    "specModifiedTime": "2026-10-04T14:53:15Z",
+    "validation": "Success"
+  }
+}

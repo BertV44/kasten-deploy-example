@@ -1,0 +1,28 @@
+{
+  "apiVersion": "config.kio.kasten.io/v1alpha1",
+  "kind": "Policy",
+  "metadata": {
+    "name": "k10-system-reports-policy",
+    "namespace": "kasten-io"
+  },
+  "spec": {
+    "actions": [
+      {
+        "action": "report",
+        "reportParameters": {
+          "statsIntervalDays": 1
+        }
+      }
+    ],
+    "comment": "The policy for enabling auto-generated reports.",
+    "createdBy": "kube:admin",
+    "frequency": "@daily",
+    "lastModifyHash": 2683506564,
+    "selector": {}
+  },
+  "status": {
+    "hash": 2084967539,
+    "specModifiedTime": "2026-09-29T07:52:13Z",
+    "validation": "Success"
+  }
+}

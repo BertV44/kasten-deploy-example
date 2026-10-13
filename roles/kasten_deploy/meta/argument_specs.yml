@@ -1,0 +1,311 @@
+---
+argument_specs:
+  main:
+    short_description: Offline deployment and configuration of Veeam Kasten
+    description:
+      - Installs Veeam Kasten with Helm or the OLM operator, then configures license, multi-cluster,
+        RBAC, profiles, Kasten Disaster Recovery, Reports and policies.
+      - Variables marked "conditionally required" are enforced by the preflight tasks so that all
+        errors are reported in a single message.
+    options:
+      kasten_platform:
+        type: str
+        default: auto
+        choices: [auto, openshift, kubernetes]
+        description: Target platform. With auto, OpenShift is detected through the config.openshift.io API.
+      kasten_install_method:
+        type: str
+        default: helm
+        choices: [helm, operator]
+        description: Installation method. operator requires OpenShift.
+      kasten_version:
+        type: str
+        default: ""
+        description: Kasten version, for example 9.0.7. Required (enforced by preflight).
+      kasten_namespace:
+        type: str
+        default: kasten-io
+        description: Namespace of the Kasten installation.
+      kasten_release_name:
+        type: str
+        default: k10
+        description: Helm release name, also the name of the K10 custom resource with the operator.
+      kasten_kubeconfig:
+        type: str
+        default: ""
+        description: Path to a kubeconfig. When empty, K8S_AUTH_KUBECONFIG and the other K8S_AUTH_* variables apply.
+      kasten_kube_context:
+        type: str
+        default: ""
+        description: Kubeconfig context to use.
+      kasten_airgap_repository:
+        type: str
+        default: ""
+        description: Private registry holding the Kasten images (global.airgapped.repository). Required.
+      kasten_image_pull_secret_name:
+        type: str
+        default: ""
+        description: Name of the image pull Secret (global.imagePullSecret) when the registry is private.
+      kasten_docker_config_json_b64:
+        type: str
+        default: ""
+        no_log: true
+        description: Base64 of the registry config.json (secrets.dockerConfig). Store it in a vault.
+      kasten_helm_chart_path:
+        type: path
+        default: ""
+        description: Local path of the Kasten chart (.tgz) on the control node. Conditionally required for the Helm method.
+      kasten_helm_wait_timeout:
+        type: str
+        default: 15m
+        description: Timeout of the Helm wait.
+      kasten_values:
+        type: dict
+        default: {}
+        description: Additional values, deep merged. Rendered as Helm values or as the K10 custom resource spec.
+      kasten_operator_package:
+        type: str
+        default: k10-kasten-operator-rhmp
+        description: OLM package. Preflight accepts k10-kasten-operator-rhmp and k10-kasten-operator-term-rhmp only (PAYGO is not usable offline).
+      kasten_operator_catalog_source:
+        type: str
+        default: ""
+        description: Existing CatalogSource providing the package. Conditionally required for the operator method.
+      kasten_operator_catalog_namespace:
+        type: str
+        default: openshift-marketplace
+        description: Namespace of the CatalogSource.
+      kasten_operator_channel:
+        type: str
+        default: stable
+        description: Subscription channel, as listed in the PackageManifest.
+      kasten_operator_starting_csv:
+        type: str
+        default: ""
+        description: Optional startingCSV. Required with the Manual install plan approval so the plan can be approved.
+      kasten_operator_install_plan_approval:
+        type: str
+        default: Manual
+        choices: [Manual, Automatic]
+        description: Install plan approval mode.
+      kasten_license_enabled:
+        type: bool
+        default: false
+        description: Manage a license Secret.
+      kasten_license_text:
+        type: str
+        default: ""
+        no_log: true
+        description: License text. Store it in a vault.
+      kasten_license_file:
+        type: path
+        default: ""
+        description: Path to a license file on the control node. Alternative to kasten_license_text.
+      kasten_license_secret_name:
+        type: str
+        default: k10-custom-license
+        description: Name of the license Secret. The license text goes in the field named license.
+      kasten_mc_role:
+        type: str
+        default: none
+        choices: [none, primary, secondary]
+        description: Multi-cluster role of this cluster.
+      kasten_mc_cluster_name:
+        type: str
+        default: ""
+        description: Cluster name. Lowercase letters, digits, '-' and '.', starting and ending with an alphanumeric character.
+      kasten_mc_primary_ingress_url:
+        type: str
+        default: ""
+        description: Primary dashboard URL including the release path, for example https://host/k10. Required for the primary.
+      kasten_mc_primary_host:
+        type: str
+        default: ""
+        description: Inventory hostname of the primary. Required for a secondary.
+      kasten_mc_secondary_cluster_ingress:
+        type: str
+        default: ""
+        description: Optional ingress of this secondary, used by the primary for dashboard proxying.
+      kasten_mc_primary_ingress_override:
+        type: str
+        default: ""
+        description: Optional primary ingress overriding the one encoded in the join token.
+      kasten_mc_join_timeout_seconds:
+        type: int
+        default: 300
+        description: Maximum wait for a secondary to reach the Joined status.
+      kasten_mc_delete_join_token_after_join:
+        type: bool
+        default: true
+        description: Delete the join token Secret on the primary once the secondary has joined.
+      kasten_rbac_bindings:
+        type: list
+        elements: dict
+        default: []
+        description: Bindings to create. The role never creates ClusterRoles.
+        options:
+          name:
+            type: str
+            required: true
+            description: Binding name.
+          scope:
+            type: str
+            default: cluster
+            choices: [cluster, namespace]
+            description: ClusterRoleBinding (cluster) or RoleBinding (namespace).
+          namespace:
+            type: str
+            default: ""
+            description: Namespace of the RoleBinding. Required when scope is namespace.
+          role:
+            type: str
+            required: true
+            description: >-
+              ClusterRole to bind. Kasten roles are installed as <release>-admin, <release>-basic and
+              <release>-config-view; the role resolves the real name and fails if the ClusterRole is missing.
+          subjects:
+            type: list
+            elements: dict
+            required: true
+            description: Subjects of the binding.
+            options:
+              kind:
+                type: str
+                required: true
+                choices: [User, Group, ServiceAccount]
+                description: Subject kind.
+              name:
+                type: str
+                required: true
+                description: Subject name.
+              namespace:
+                type: str
+                default: ""
+                description: Namespace of the ServiceAccount. Required for ServiceAccount subjects.
+      kasten_profiles:
+        type: list
+        elements: dict
+        default: []
+        description: Location profiles to create.
+        options:
+          name:
+            type: str
+            required: true
+            description: Profile name.
+          type:
+            type: str
+            required: true
+            choices: [s3, s3compatible]
+            description: Profile type. Both use objectStoreType S3, only the endpoint differs.
+          endpoint:
+            type: str
+            default: ""
+            description: Object store endpoint. Required for s3compatible.
+          region:
+            type: str
+            default: ""
+            description: Region.
+          bucket:
+            type: str
+            required: true
+            description: Bucket name.
+          path:
+            type: str
+            default: ""
+            description: Optional path prefix inside the bucket.
+          skip_ssl_verify:
+            type: bool
+            default: false
+            description: Skip TLS verification of the endpoint.
+          credentials:
+            type: dict
+            required: true
+            no_log: true
+            description: Object store credentials. Store them in a vault.
+            options:
+              access_key_id:
+                type: str
+                required: true
+                description: Access key ID.
+              secret_access_key:
+                type: str
+                required: true
+                no_log: true
+                description: Secret access key.
+          immutability:
+            type: dict
+            default: {}
+            description: Immutability settings, mapped to protectionPeriod.
+            options:
+              enabled:
+                type: bool
+                default: false
+                description: Enable immutability.
+              protection_days:
+                type: int
+                default: 0
+                description: Protection period in days.
+      kasten_dr_enabled:
+        type: bool
+        default: false
+        description: Manage Kasten Disaster Recovery.
+      kasten_dr_mode:
+        type: str
+        default: quick_local
+        choices: [quick_local, quick_exported, quick_none, legacy]
+        description: KDR mode. Quick DR is the default since Kasten 8.0.0, legacy is deprecated.
+      kasten_dr_profile:
+        type: str
+        default: ""
+        description: Name of an entry of kasten_profiles used as KDR destination. Conditionally required.
+      kasten_dr_passphrase_source:
+        type: str
+        default: raw
+        choices: [raw, vault, aws, azure]
+        description: Passphrase source. Only raw is implemented.
+      kasten_dr_passphrase:
+        type: str
+        default: ""
+        no_log: true
+        description: Raw KDR passphrase. Store it in a vault. Required when the source is raw.
+      kasten_dr_run_once:
+        type: bool
+        default: false
+        description: Trigger one manual KDR run after configuration.
+      kasten_dr_policy:
+        type: dict
+        description: Frequency and retention of the KDR policy. Defaults are demonstration values, not recommendations.
+        default:
+          frequency: "@hourly"
+          retention: {hourly: 4, daily: 1, weekly: 1, monthly: 1, yearly: 1}
+        options:
+          frequency:
+            type: str
+            default: "@hourly"
+            description: Policy frequency.
+          retention:
+            type: dict
+            default: {hourly: 4, daily: 1, weekly: 1, monthly: 1, yearly: 1}
+            description: Retention counts by period.
+      kasten_reports_enabled:
+        type: bool
+        default: false
+        description: Manage the Reports policy.
+      kasten_reports_policy:
+        type: dict
+        default: {}
+        description: Frequency and retention of the Reports policy.
+      kasten_reports_wait_first_report:
+        type: bool
+        default: false
+        description: Wait for the first Report after enabling Reports.
+      kasten_policies:
+        type: list
+        elements: dict
+        default: []
+        description: Application and cluster-scoped policies. Structure is validated further in the policies phase.
+      kasten_cluster_scoped_extra_includes:
+        type: list
+        elements: dict
+        default: []
+        description: Extra {group, resource} inclusions for cluster-scoped policies, for example OpenShift SCCs.

@@ -1,0 +1,204 @@
+---
+# Errors are collected in kasten_deploy_preflight_errors and reported by a single fail at the end.
+- name: Preflight | Initialise the error list
+  ansible.builtin.set_fact:
+    kasten_deploy_preflight_errors: []
+
+- name: Preflight | Check general variables
+  ansible.builtin.set_fact:
+    kasten_deploy_preflight_errors: "{{ kasten_deploy_preflight_errors + (_errors | reject('equalto', '') | list) }}"
+  vars:
+    _errors:
+      - "{{ '' if kasten_version | regex_search('^[0-9]+\\.[0-9]+\\.[0-9]+$') else 'kasten_version is required and must look like 9.0.7' }}"
+      - "{{ '' if kasten_airgap_repository | length > 0 else 'kasten_airgap_repository is required (private registry holding the Kasten images)' }}"
+      - "{{ '' if kasten_helm_wait_timeout | regex_search('^[0-9]+[smh]$') else 'kasten_helm_wait_timeout must look like 15m' }}"
+
+- name: Preflight | Check that the Helm chart exists on the control node
+  ansible.builtin.stat:
+    path: "{{ kasten_helm_chart_path }}"
+  delegate_to: localhost
+  become: false
+  register: kasten_deploy_preflight_chart_stat
+  when:
+    - kasten_install_method == 'helm'
+    - kasten_helm_chart_path | length > 0
+
+- name: Preflight | Check that the license file exists on the control node
+  ansible.builtin.stat:
+    path: "{{ kasten_license_file }}"
+  delegate_to: localhost
+  become: false
+  register: kasten_deploy_preflight_license_stat
+  when: kasten_license_file | length > 0
+
+- name: Preflight | Check the Helm binary on the control node
+  ansible.builtin.command: helm version --short
+  delegate_to: localhost
+  become: false
+  register: kasten_deploy_preflight_helm
+  changed_when: false
+  failed_when: false
+  when: kasten_install_method == 'helm'
+
+- name: Preflight | Check installation method variables
+  ansible.builtin.set_fact:
+    kasten_deploy_preflight_errors: "{{ kasten_deploy_preflight_errors + (_errors | reject('equalto', '') | list) }}"
+  vars:
+    _errors:
+      - >-
+        {{ '' if kasten_install_method != 'helm' or kasten_helm_chart_path | length > 0
+        else 'kasten_helm_chart_path is required with the helm method' }}
+      - >-
+        {{ '' if kasten_install_method != 'helm' or kasten_helm_chart_path | length == 0 or (kasten_deploy_preflight_chart_stat.stat.isreg | default(false))
+        else 'kasten_helm_chart_path does not point to an existing file: ' ~ kasten_helm_chart_path }}
+      - >-
+        {{ '' if kasten_install_method != 'helm' or (kasten_deploy_preflight_helm.rc | default(1)) == 0
+        else 'the helm binary is not available on the control node (it is not downloaded: environment is offline)' }}
+      - >-
+        {{ '' if kasten_install_method != 'operator'
+        or kasten_operator_package in ['k10-kasten-operator-rhmp', 'k10-kasten-operator-term-rhmp']
+        else 'kasten_operator_package must be k10-kasten-operator-rhmp or k10-kasten-operator-term-rhmp (the PAYGO edition is not usable offline)' }}
+      - >-
+        {{ '' if kasten_install_method != 'operator' or kasten_operator_catalog_source | length > 0
+        else 'kasten_operator_catalog_source is required with the operator method (the package exists in several catalogs)' }}
+      - >-
+        {{ '' if kasten_install_method != 'operator' or kasten_operator_channel | length > 0
+        else 'kasten_operator_channel is required with the operator method' }}
+      - >-
+        {{ '' if kasten_install_method != 'operator' or kasten_operator_install_plan_approval != 'Manual'
+        or kasten_operator_starting_csv | length > 0
+        else 'kasten_operator_starting_csv is required with the Manual install plan approval, otherwise the install plan cannot be approved' }}
+
+- name: Preflight | Check license variables
+  ansible.builtin.set_fact:
+    kasten_deploy_preflight_errors: "{{ kasten_deploy_preflight_errors + (_errors | reject('equalto', '') | list) }}"
+  vars:
+    _errors:
+      - >-
+        {{ '' if not kasten_license_enabled | bool or kasten_license_text | length > 0 or kasten_license_file | length > 0
+        else 'kasten_license_enabled requires kasten_license_text or kasten_license_file' }}
+      - >-
+        {{ '' if kasten_license_text | length == 0 or kasten_license_file | length == 0
+        else 'kasten_license_text and kasten_license_file are mutually exclusive' }}
+      - >-
+        {{ '' if kasten_license_file | length == 0 or (kasten_deploy_preflight_license_stat.stat.exists | default(false))
+        else 'kasten_license_file does not point to an existing file: ' ~ kasten_license_file }}
+
+- name: Preflight | Check multi-cluster variables
+  ansible.builtin.set_fact:
+    kasten_deploy_preflight_errors: "{{ kasten_deploy_preflight_errors + (_errors | reject('equalto', '') | list) }}"
+  vars:
+    _name_re: '^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$'
+    _errors:
+      - >-
+        {{ '' if kasten_mc_cluster_name | length == 0 or kasten_mc_cluster_name | regex_search(_name_re)
+        else 'kasten_mc_cluster_name must use lowercase letters, digits, - and ., and start and end with an alphanumeric character' }}
+      - >-
+        {{ '' if kasten_mc_role != 'primary' or kasten_mc_cluster_name | length > 0
+        else 'kasten_mc_cluster_name is required for a multi-cluster primary' }}
+      - >-
+        {{ '' if kasten_mc_role != 'primary' or kasten_mc_primary_ingress_url | length > 0
+        else 'kasten_mc_primary_ingress_url is required for a multi-cluster primary (<URL>/<release>)' }}
+      - >-
+        {{ '' if kasten_mc_role != 'secondary' or kasten_mc_primary_host | length > 0
+        else 'kasten_mc_primary_host is required for a multi-cluster secondary' }}
+
+- name: Preflight | Check RBAC and profile variables
+  ansible.builtin.set_fact:
+    kasten_deploy_preflight_errors: "{{ kasten_deploy_preflight_errors + (_errors | reject('equalto', '') | list) }}"
+  vars:
+    _rbac_ns: >-
+      {%- set out = [] -%}
+      {%- for b in kasten_rbac_bindings -%}
+      {%- if (b.scope | default('cluster')) == 'namespace' and not (b.namespace | default('')) -%}{%- set _ = out.append(b.name) -%}{%- endif -%}
+      {%- endfor -%}
+      {{ out }}
+    _rbac_empty: >-
+      {%- set out = [] -%}
+      {%- for b in kasten_rbac_bindings -%}
+      {%- if (b.subjects | default([])) | length == 0 -%}{%- set _ = out.append(b.name) -%}{%- endif -%}
+      {%- endfor -%}
+      {{ out }}
+    _sa_ns: >-
+      {%- set out = [] -%}
+      {%- for b in kasten_rbac_bindings -%}
+      {%- for subject in b.subjects | default([]) -%}
+      {%- if subject.kind == 'ServiceAccount' and not (subject.namespace | default('')) -%}{%- set _ = out.append(subject.name) -%}{%- endif -%}
+      {%- endfor -%}
+      {%- endfor -%}
+      {{ out }}
+    _profile_names: "{{ kasten_profiles | map(attribute='name') | list }}"
+    _profile_no_endpoint: >-
+      {%- set out = [] -%}
+      {%- for p in kasten_profiles -%}
+      {%- if p.type == 's3compatible' and not (p.endpoint | default('')) -%}{%- set _ = out.append(p.name) -%}{%- endif -%}
+      {%- endfor -%}
+      {{ out }}
+    _profile_bad_name: "{{ _profile_names | reject('regex', '^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$') | list }}"
+    _errors:
+      - "{{ '' if _rbac_ns | length == 0 else 'kasten_rbac_bindings with scope namespace need a namespace: ' ~ (_rbac_ns | join(', ')) }}"
+      - "{{ '' if _rbac_empty | length == 0 else 'kasten_rbac_bindings need at least one subject: ' ~ (_rbac_empty | join(', ')) }}"
+      - "{{ '' if _sa_ns | length == 0 else 'ServiceAccount subjects need a namespace: ' ~ (_sa_ns | join(', ')) }}"
+      - "{{ '' if _profile_names | length == _profile_names | unique | length else 'kasten_profiles names must be unique' }}"
+      - "{{ '' if _profile_no_endpoint | length == 0 else 'kasten_profiles of type s3compatible need an endpoint: ' ~ (_profile_no_endpoint | join(', ')) }}"
+      - "{{ '' if _profile_bad_name | length == 0 else 'kasten_profiles names must be valid Kubernetes names: ' ~ (_profile_bad_name | join(', ')) }}"
+
+- name: Preflight | Check disaster recovery variables
+  ansible.builtin.set_fact:
+    kasten_deploy_preflight_errors: "{{ kasten_deploy_preflight_errors + (_errors | reject('equalto', '') | list) }}"
+  vars:
+    _dr_profile: "{{ kasten_profiles | selectattr('name', 'eq', kasten_dr_profile) | list }}"
+    _errors:
+      - >-
+        {{ '' if not kasten_dr_enabled | bool or _dr_profile | length > 0
+        else 'kasten_dr_profile must name an entry of kasten_profiles (got: "' ~ kasten_dr_profile ~ '")' }}
+      - >-
+        {{ '' if not kasten_dr_enabled | bool or _dr_profile | length == 0 or _dr_profile[0].type not in ['veeam_repository', 'vbr']
+        else 'a Veeam Repository profile cannot be the KDR destination' }}
+      - >-
+        {{ '' if not kasten_dr_enabled | bool or kasten_dr_passphrase_source != 'raw' or kasten_dr_passphrase | length > 0
+        else 'kasten_dr_passphrase is required when kasten_dr_passphrase_source is raw' }}
+      - >-
+        {{ '' if not kasten_dr_enabled | bool or kasten_dr_passphrase_source == 'raw'
+        else 'kasten_dr_passphrase_source ' ~ kasten_dr_passphrase_source ~ ' is not implemented yet, only raw is (see docs/OPEN_ITEMS.md)' }}
+
+- name: Preflight | Query the cluster API
+  kubernetes.core.k8s_cluster_info:
+  register: kasten_deploy_preflight_cluster
+  failed_when: false
+
+- name: Preflight | Detect OpenShift through the ClusterVersion API
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: ClusterVersion
+    name: version
+  register: kasten_deploy_preflight_clusterversion
+  failed_when: false
+  when:
+    - kasten_platform == 'auto'
+    - kasten_deploy_preflight_cluster.apis is defined
+
+- name: Preflight | Resolve the platform and check cluster-dependent variables
+  ansible.builtin.set_fact:
+    kasten_deploy_platform: "{{ _resolved }}"
+    kasten_deploy_preflight_errors: "{{ kasten_deploy_preflight_errors + (_errors | reject('equalto', '') | list) }}"
+  vars:
+    _detected: "{{ 'openshift' if (kasten_deploy_preflight_clusterversion.resources | default([]) | length) > 0 else 'kubernetes' }}"
+    _resolved: "{{ kasten_platform if kasten_platform != 'auto' else (_detected if kasten_deploy_preflight_cluster.apis is defined else 'unknown') }}"
+    _errors:
+      - >-
+        {{ '' if kasten_deploy_preflight_cluster.apis is defined
+        else 'the Kubernetes API is not reachable (check kasten_kubeconfig, kasten_kube_context or K8S_AUTH_*): '
+        ~ (kasten_deploy_preflight_cluster.msg | default('no detail') | truncate(300)) }}
+      - >-
+        {{ '' if kasten_install_method != 'operator' or _resolved in ['openshift', 'unknown']
+        else 'the operator install method is supported on OpenShift only (platform: ' ~ _resolved ~ ')' }}
+
+- name: Preflight | Fail with all collected errors
+  ansible.builtin.fail:
+    msg: |-
+      Kasten preflight failed with {{ kasten_deploy_preflight_errors | length }} error(s):
+      {% for error in kasten_deploy_preflight_errors %}
+      - {{ error }}
+      {% endfor %}
+  when: kasten_deploy_preflight_errors | length > 0

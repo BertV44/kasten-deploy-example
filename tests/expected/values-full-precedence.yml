@@ -1,0 +1,22 @@
+---
+global:
+  airgapped:
+    repository: registry.example.local:5000/kasten
+  imagePullSecret: k10-ecr
+kastenDisasterRecovery:
+  quickMode:
+    enabled: false
+metering:
+  mode: airgap
+multicluster:
+  primary:
+    create: true
+    ingressURL: https://hub.example.local/k10
+    name: hub
+secrets:
+  dockerConfig: PLACEHOLDER_B64
+auth:
+  tokenAuth:
+    enabled: true
+route:
+  enabled: true

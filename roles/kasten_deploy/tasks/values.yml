@@ -1,0 +1,23 @@
+---
+# Builds kasten_deploy_values, shared by the Helm and operator installs.
+# Precedence, weakest to strongest: air-gap values, kasten_values, multi-cluster primary values, KDR mode value.
+- name: Values | Merge the Kasten values
+  ansible.builtin.set_fact:
+    kasten_deploy_values: "{{ _airgap | combine(kasten_values, _multicluster, _dr_mode, recursive=true) }}"
+  no_log: true
+  vars:
+    _airgap_core:
+      global:
+        airgapped:
+          repository: "{{ kasten_airgap_repository }}"
+      metering:
+        mode: airgap
+    _pull_secret: "{{ {'global': {'imagePullSecret': kasten_image_pull_secret_name}} if kasten_image_pull_secret_name | length > 0 else {} }}"
+    _docker_config: "{{ {'secrets': {'dockerConfig': kasten_docker_config_json_b64}} if kasten_docker_config_json_b64 | length > 0 else {} }}"
+    _airgap: "{{ _airgap_core | combine(_pull_secret, _docker_config, recursive=true) }}"
+    _multicluster: >-
+      {{ {'multicluster': {'primary': {'create': true, 'name': kasten_mc_cluster_name, 'ingressURL': kasten_mc_primary_ingress_url}}}
+      if kasten_mc_role == 'primary' else {} }}
+    _dr_mode: >-
+      {{ {'kastenDisasterRecovery': {'quickMode': {'enabled': kasten_dr_mode != 'legacy'}}}
+      if kasten_dr_enabled | bool else {} }}

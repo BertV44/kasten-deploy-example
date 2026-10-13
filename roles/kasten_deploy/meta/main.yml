@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  author: Bertrand Castagnet
+  description: Offline deployment of Veeam Kasten (Helm or OLM operator) and post-install configuration.
+  license: Apache-2.0
+  min_ansible_version: "2.21"
+  role_name: kasten_deploy
+  namespace: veeam
+  platforms:
+    - name: GenericLinux
+      versions:
+        - all
+  galaxy_tags:
+    - kubernetes
+    - openshift
+    - kasten
+    - backup
+dependencies: []

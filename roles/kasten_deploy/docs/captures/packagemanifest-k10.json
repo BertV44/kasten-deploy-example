@@ -1,0 +1,30 @@
+{
+  "package": "k10-kasten-operator-rhmp",
+  "catalog": "redhat-marketplace",
+  "defaultChannel": "stable",
+  "channels": [
+    {
+      "name": "stable",
+      "currentCSV": "k10-kasten-operator-rhmp.v8.5.8",
+      "installModes": [
+        {
+          "supported": true,
+          "type": "OwnNamespace"
+        },
+        {
+          "supported": true,
+          "type": "SingleNamespace"
+        },
+        {
+          "supported": false,
+          "type": "MultiNamespace"
+        },
+        {
+          "supported": false,
+          "type": "AllNamespaces"
+        }
+      ],
+      "displayName": "Veeam Kasten"
+    }
+  ]
+}

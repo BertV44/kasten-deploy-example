@@ -1,0 +1,78 @@
+---
+# Values rendering matrix. Expected files are in tests/expected and were written before the first run.
+- name: Values rendering tests
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    base:
+      kasten_airgap_repository: registry.example.local:5000/kasten
+    cases:
+      - name: airgap-default
+        vars: {}
+      - name: full-precedence
+        vars:
+          kasten_image_pull_secret_name: k10-ecr
+          kasten_docker_config_json_b64: PLACEHOLDER_B64
+          kasten_values: {auth: {tokenAuth: {enabled: true}}, route: {enabled: true}}
+          kasten_mc_role: primary
+          kasten_mc_cluster_name: hub
+          kasten_mc_primary_ingress_url: https://hub.example.local/k10
+          kasten_dr_enabled: true
+          kasten_dr_mode: legacy
+      - name: quick-mode-user-override
+        vars:
+          kasten_values: {metering: {mode: custom}, kastenDisasterRecovery: {quickMode: {enabled: false}}}
+          kasten_dr_enabled: true
+          kasten_dr_mode: quick_local
+  tasks:
+    - name: Render every case in its own process
+      ansible.builtin.command:
+        argv:
+          - "{{ lookup('ansible.builtin.env', 'VIRTUAL_ENV') ~ '/bin/ansible-playbook' }}"
+          - "{{ playbook_dir }}/dump_values.yml"
+          - --inventory
+          - localhost,
+          - --extra-vars
+          - "{{ base | combine(case.vars) | combine({'dump_file': playbook_dir ~ '/.out-' ~ case.name ~ '.yml', 'ansible_python_interpreter': ansible_playbook_python}) | to_json }}"
+      environment:
+        ANSIBLE_ROLES_PATH: "{{ playbook_dir }}/../roles"
+      changed_when: false
+      loop: "{{ cases }}"
+      loop_control:
+        loop_var: case
+        label: "{{ case.name }}"
+
+    - name: Read the rendered files
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/.out-{{ item.name }}.yml"
+      register: rendered
+      loop: "{{ cases }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Read the expected files
+      ansible.builtin.slurp:
+        src: "{{ playbook_dir }}/expected/values-{{ item.name }}.yml"
+      register: expected
+      loop: "{{ cases }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Compare rendered and expected values
+      ansible.builtin.assert:
+        that: (rendered.results[idx].content | b64decode | from_yaml) == (expected.results[idx].content | b64decode | from_yaml)
+        fail_msg: "{{ cases[idx].name }} differs from tests/expected"
+        quiet: true
+      loop: "{{ range(cases | length) | list }}"
+      loop_control:
+        loop_var: idx
+        label: "{{ cases[idx].name }}"
+
+    - name: Remove the rendered files
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/.out-{{ item.name }}.yml"
+        state: absent
+      loop: "{{ cases }}"
+      loop_control:
+        label: "{{ item.name }}"

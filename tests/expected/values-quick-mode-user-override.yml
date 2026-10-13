@@ -1,0 +1,9 @@
+---
+global:
+  airgapped:
+    repository: registry.example.local:5000/kasten
+kastenDisasterRecovery:
+  quickMode:
+    enabled: true
+metering:
+  mode: custom

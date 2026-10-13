@@ -1,0 +1,68 @@
+{
+  "apiVersion": "config.kio.kasten.io/v1alpha1",
+  "kind": "Policy",
+  "metadata": {
+    "name": "k10-disaster-recovery-policy",
+    "namespace": "kasten-io"
+  },
+  "spec": {
+    "actions": [
+      {
+        "action": "backup",
+        "backupParameters": {
+          "filters": {},
+          "profile": {
+            "name": "storj",
+            "namespace": "kasten-io"
+          }
+        }
+      }
+    ],
+    "createdBy": "kube:admin",
+    "frequency": "@daily",
+    "kdrSnapshotConfiguration": {
+      "takeLocalCatalogSnapshot": true
+    },
+    "lastModifyHash": 2688371339,
+    "modifiedBy": "kube:admin",
+    "retention": {
+      "daily": 1,
+      "monthly": 1,
+      "weekly": 1,
+      "yearly": 1
+    },
+    "selector": {
+      "matchExpressions": [
+        {
+          "key": "k10.kasten.io/appNamespace",
+          "operator": "In",
+          "values": [
+            "kasten-io"
+          ]
+        }
+      ]
+    },
+    "subFrequency": {
+      "days": [
+        1
+      ],
+      "hours": [
+        4
+      ],
+      "minutes": [
+        0
+      ],
+      "months": [
+        1
+      ],
+      "weekdays": [
+        0
+      ]
+    }
+  },
+  "status": {
+    "hash": 984764287,
+    "specModifiedTime": "2026-09-29T07:56:00Z",
+    "validation": "Success"
+  }
+}

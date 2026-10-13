@@ -1,0 +1,43 @@
+[
+  {
+    "apiVersion": "apik10.kasten.io/v1alpha1",
+    "kind": "K10",
+    "metadata": {
+      "annotations": {
+        "helm.sdk.operatorframework.io/reconcile-period": "2m",
+        "helm.sdk.operatorframework.io/rollback-force": "false"
+      },
+      "name": "k10"
+    },
+    "spec": {
+      "auth": {
+        "basicAuth": {
+          "enabled": false,
+          "htpasswd": "",
+          "secretName": ""
+        },
+        "tokenAuth": {
+          "enabled": false
+        }
+      },
+      "global": {
+        "persistence": {
+          "catalog": {
+            "size": ""
+          },
+          "storageClass": ""
+        }
+      },
+      "metering": {
+        "mode": ""
+      },
+      "route": {
+        "enabled": false,
+        "host": "",
+        "tls": {
+          "enabled": false
+        }
+      }
+    }
+  }
+]

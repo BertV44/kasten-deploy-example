@@ -1,0 +1,6 @@
+---
+- name: Deploy and configure Veeam Kasten on one cluster
+  hosts: kasten_clusters
+  gather_facts: false
+  roles:
+    - role: kasten_deploy
